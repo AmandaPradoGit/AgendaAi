@@ -4,7 +4,7 @@
  * extrai dados de pedidos e envia para o backend Laravel.
  */
 
-const { useSingleFileAuthState, makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = require('@adiwajshing/baileys');
+const { useMultiFileAuthState, makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = require('baileys');
 const { Boom } = require('@hapi/boom');
 const axios = require('axios');
 const fs = require('fs');
@@ -176,17 +176,17 @@ async function sendToLaravel(orderData, phone, originalMessage) {
 
 async function connectToWhatsApp() {
     ensureAuthDirExists();
-    const { state, saveState } = await useSingleFileAuthState(AUTH_FILE);
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
     const { version } = await fetchLatestBaileysVersion();
     console.log(`Usando Baileys v${version.join('.')}`);
     
     const sock = makeWASocket({
-        version, printQRInTerminal: true, auth: state,
+        version, auth: state,
         browser: ['SistemaPedidos', 'Chrome', '1.0.0'],
         shouldReconnect: () => true, maxMsgRetryCount: 3
     });
     
-    sock.ev.on('creds.update', saveState);
+    sock.ev.on('creds.update', saveCreds);
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) console.log('QR Code gerado. Escaneie com o WhatsApp.');
