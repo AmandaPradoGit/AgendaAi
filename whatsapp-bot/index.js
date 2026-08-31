@@ -187,19 +187,34 @@ async function connectToWhatsApp() {
     });
     
     sock.ev.on('creds.update', saveCreds);
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
             console.log('\n========================================');
-            console.log('  📱 QR CODE PARA AUTENTICAÇÃO');
+            console.log('  📱 AUTENTICAÇÃO WHATSAPP');
             console.log('========================================');
+            console.log('');
+            console.log('📌 MÉTODO 1 (Recomendado):');
+            console.log('   Abra este link no seu CELULAR:');
+            console.log(`   ${qr}`);
+            console.log('');
+            console.log('   ou escaneie este QR Code:');
+            
+            // Gerar QR Code em formato ASCII
             qrcode.generate(qr, { small: true }, (qrcodeString) => {
                 console.log(qrcodeString);
-                console.log('========================================');
-                console.log('Escaneie este QR Code com o WhatsApp');
-                console.log('no seu celular para conectar o bot.');
-                console.log('========================================\n');
             });
+            
+            console.log('');
+            console.log('📌 MÉTODO 2:');
+            console.log('   Abra este link no navegador para ver o QR Code:');
+            const qrImageLink = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qr)}`;
+            console.log(`   ${qrImageLink}`);
+            console.log('');
+            console.log('========================================');
+            console.log('IMPORTANTE: Faça login com o WhatsApp no link acima');
+            console.log('para conectar o bot ao seu número.');
+            console.log('========================================\n');
         }
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
