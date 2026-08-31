@@ -218,10 +218,9 @@ async function connectToWhatsApp() {
             console.log('========================================\n');
         }
         if (connection === 'close') {
-            // Verificar se o erro é de deslogado permanente
-            const shouldReconnect = (lastDisconnect.error instanceof Boom) 
-                ? lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut
-                : true;
+            // Verificar se o erro é de deslogado permanente (logged out)
+            const shouldReconnect = !(lastDisconnect.error instanceof Boom && 
+                lastDisconnect.error.output?.statusCode === DisconnectReason.loggedOut);
             
             if (shouldReconnect) {
                 console.log('Conexão fechada. Reconectando em 5 segundos...');
@@ -229,6 +228,8 @@ async function connectToWhatsApp() {
             } else {
                 console.log('❌ Desconectado permanentemente.');
                 console.log('Reinicie o script e escaneie o QR Code novamente.');
+                console.log('');
+                console.log('Dica: Se o problema persistir, delete a pasta auth/ e tente novamente.');
             }
         } else if (connection === 'open') {
             console.log('✅ Conectado ao WhatsApp!');
