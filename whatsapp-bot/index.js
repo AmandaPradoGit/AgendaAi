@@ -5,10 +5,10 @@
  */
 
 const { useMultiFileAuthState, makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = require('baileys');
-const { Boom } = require('@hapi/boom');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const qrcode = require('qrcode-terminal');
 
 // Configurações
 const AUTH_DIR = path.join(__dirname, 'auth');
@@ -189,7 +189,18 @@ async function connectToWhatsApp() {
     sock.ev.on('creds.update', saveCreds);
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-        if (qr) console.log('QR Code gerado. Escaneie com o WhatsApp.');
+        if (qr) {
+            console.log('\n========================================');
+            console.log('  📱 QR CODE PARA AUTENTICAÇÃO');
+            console.log('========================================');
+            qrcode.generate(qr, { small: true }, (qrcodeString) => {
+                console.log(qrcodeString);
+                console.log('========================================');
+                console.log('Escaneie este QR Code com o WhatsApp');
+                console.log('no seu celular para conectar o bot.');
+                console.log('========================================\n');
+            });
+        }
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
@@ -199,7 +210,8 @@ async function connectToWhatsApp() {
                 console.log('Desconectado. Reinicie o script.');
             }
         } else if (connection === 'open') {
-            console.log('Conectado ao WhatsApp!');
+            console.log('✅ Conectado ao WhatsApp!');
+            console.log('Bot pronto para receber pedidos!\n');
         }
     });
     
