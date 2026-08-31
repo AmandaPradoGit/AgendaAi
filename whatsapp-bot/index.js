@@ -5,6 +5,7 @@
  */
 
 const { useMultiFileAuthState, makeWASocket, DisconnectReason, fetchLatestBaileysVersion } = require('baileys');
+const { Boom } = require('@hapi/boom');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -217,16 +218,25 @@ async function connectToWhatsApp() {
             console.log('========================================\n');
         }
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+            // Verificar se o erro é de deslogado permanente
+            const shouldReconnect = (lastDisconnect.error instanceof Boom) 
+                ? lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut
+                : true;
+            
             if (shouldReconnect) {
-                console.log('Conexão fechada. Reconectando...');
+                console.log('Conexão fechada. Reconectando em 5 segundos...');
                 setTimeout(() => connectToWhatsApp(), RECONNECT_DELAY);
             } else {
-                console.log('Desconectado. Reinicie o script.');
+                console.log('❌ Desconectado permanentemente.');
+                console.log('Reinicie o script e escaneie o QR Code novamente.');
             }
         } else if (connection === 'open') {
             console.log('✅ Conectado ao WhatsApp!');
             console.log('Bot pronto para receber pedidos!\n');
+        } else if (connection === 'connecting') {
+            console.log('🔄 Conectando ao WhatsApp...');
+        } else if (connection === 'awaiting-initial-sync') {
+            console.log('⏳ Sincronizando mensagens...');
         }
     });
     
