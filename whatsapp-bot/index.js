@@ -274,9 +274,20 @@ async function connectToWhatsApp() {
             console.log('  Type:', m.type);
             console.log('  FromMe:', message.key.fromMe);
             
-            if (message.key.fromMe || m.type !== 'notify') {
-                console.log('  → Ignorando (fromMe ou não é notify)');
+            // Processar mensagens independentemente de fromMe (para permitir auto-teste)
+            // if (message.key.fromMe || m.type !== 'notify') {
+            //     console.log('  → Ignorando (fromMe ou não é notify)');
+            //     return;
+            // }
+            
+            if (m.type !== 'notify') {
+                console.log('  → Ignorando (não é notify)');
                 return;
+            }
+            
+            // Aviso se for mensagem do próprio usuário (auto-teste)
+            if (message.key.fromMe) {
+                console.log('  ⚠️  Mensagem do próprio usuário (modo teste)');
             }
             
             let text = message.message.conversation || 
