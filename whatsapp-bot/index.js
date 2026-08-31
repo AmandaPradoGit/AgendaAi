@@ -232,8 +232,22 @@ async function connectToWhatsApp() {
                 console.log('Dica: Se o problema persistir, delete a pasta auth/ e tente novamente.');
             }
         } else if (connection === 'open') {
-            console.log('✅ Conectado ao WhatsApp!');
-            console.log('Bot pronto para receber pedidos!\n');
+            console.log('✅ ═════════════════════════════════');
+            console.log('  🎉 CONECTADO AO WHATSAPP COM SUCESSO!');
+            console.log('✅ ═════════════════════════════════');
+            console.log('');
+            console.log('  🤖 Bot pronto para receber pedidos!');
+            console.log('');
+            console.log('  💬 Envie uma mensagem com um dos gatilhos:');
+            console.log('     - 🎂✅');
+            console.log('     - /confirmar');
+            console.log('     - /pedido');
+            console.log('');
+            console.log('  📝 Exemplo:');
+            console.log('     "Bolo de Chocolate, 1, G, 25/08/2026, 14:00 🎂✅"');
+            console.log('');
+            console.log('  ⚠️  Mensagens SEM gatilho serão ignoradas.');
+            console.log('');
         } else if (connection === 'connecting') {
             console.log('🔄 Conectando ao WhatsApp...');
         } else if (connection === 'awaiting-initial-sync') {
@@ -244,7 +258,16 @@ async function connectToWhatsApp() {
     sock.ev.on('messages.upsert', async (m) => {
         try {
             const message = m.messages[0];
-            if (message.key.fromMe || m.type !== 'notify') return;
+            
+            // Log de depuração
+            console.log('\n📩 [DEBUG] Mensagem recebida');
+            console.log('  Type:', m.type);
+            console.log('  FromMe:', message.key.fromMe);
+            
+            if (message.key.fromMe || m.type !== 'notify') {
+                console.log('  → Ignorando (fromMe ou não é notify)');
+                return;
+            }
             
             let text = message.message.conversation || 
                       message.message.extendedTextMessage?.text || 
