@@ -160,16 +160,26 @@ function formatConfirmationMessage(orderData) {
 async function sendToLaravel(orderData, phone, originalMessage) {
     try {
         const payload = { phone, message: originalMessage, ...orderData };
-        console.log('Enviando para Laravel:', JSON.stringify(payload, null, 2));
+        console.log('📤 Enviando para Laravel:', LARAVEL_ENDPOINT);
+        console.log('   Dados:', JSON.stringify(payload, null, 2));
+        
         const response = await axios.post(LARAVEL_ENDPOINT, payload, {
             headers: { 'Content-Type': 'application/json' }, timeout: 10000
         });
-        console.log('Resposta do Laravel:', response.data);
+        
+        console.log('✅ Laravel respondeu:', response.status, response.statusText);
+        console.log('   Data:', JSON.stringify(response.data));
         return response.data;
     } catch (error) {
-        console.error('Erro ao enviar para Laravel:', error.message);
+        console.error('❌ Erro ao enviar para Laravel:');
         if (error.response) {
-            console.error('Status:', error.response.status, 'Data:', error.response.data);
+            console.error('   Status:', error.response.status);
+            console.error('   Data:', error.response.data);
+        } else if (error.code) {
+            console.error('   Code:', error.code);
+            console.error('   Message:', error.message);
+        } else {
+            console.error('   Message:', error.message);
         }
         throw error;
     }
@@ -279,13 +289,19 @@ async function connectToWhatsApp() {
             console.log('Texto:', text);
             
             const hasTrigger = TRIGGERS.some(t => text.includes(t));
+            console.log('Gatilho encontrado:', hasTrigger);
+            
             if (!hasTrigger) {
-                console.log('Sem gatilho, ignorando.');
+                console.log('⚠️ Sem gatilho, ignorando.');
                 return;
             }
             
+            console.log('🔍 Processando pedido...');
             const orderData = extractOrderData(text);
+            console.log('Dados extraídos:', JSON.stringify(orderData));
+            
             if (!orderData || !orderData.produto || !orderData.data_entrega) {
+                console.log('❌ Dados incompletos, enviando erro...');
                 await sock.sendMessage(message.key.remoteJid, {
                     text: 'Formato inválido. Use: *Produto, Qtd, Tamanho, Data, Hora*\nEx: "Bolo de Chocolate, 1, G, 25/08/2026, 14:00 🎂✅"'
                 });
@@ -296,14 +312,20 @@ async function connectToWhatsApp() {
                 orderData.cliente = extractClientName(message);
             }
             const phone = formatPhoneNumber(message.key.remoteJid);
+            console.log('Enviando para Laravel...');
             
             try {
                 await sendToLaravel(orderData, phone, text);
+                console.log('✅ Laravel respondeu com sucesso!');
+                
+                const confirmation = formatConfirmationMessage(orderData);
+                console.log('Enviando confirmação...');
                 await sock.sendMessage(message.key.remoteJid, {
-                    text: formatConfirmationMessage(orderData)
+                    text: confirmation
                 });
-                console.log('Pedido processado!');
+                console.log('✅ Confirmação enviada com sucesso!');
             } catch (error) {
+                console.error('❌ Erro:', error.message);
                 await sock.sendMessage(message.key.remoteJid, {
                     text: 'Erro ao registrar pedido. Tente novamente.'
                 });
