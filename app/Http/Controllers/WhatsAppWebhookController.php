@@ -56,6 +56,50 @@ class WhatsAppWebhookController extends Controller
     }
     
     /**
+     * Handle webhook from Baileys bot
+     * Receives data in Baileys format: {phone, message, cliente, produto, quantidade, tamanho, data_entrega, hora_entrega, observacoes}
+     */
+    public function handleBaileysWebhook(Request $request)
+    {
+        try {
+            $data = $request->all();
+            
+            // Log the received data
+            Log::channel('whatsapp')->info('Baileys webhook received', ['data' => $data]);
+            
+            // Validate required fields
+            if (!isset($data['phone']) || !isset($data['message'])) {
+                return response()->json(['error' => 'Missing phone or message'], 400);
+            }
+            
+            // Format data to be compatible with the Job
+            // The Job expects either Meta format or simple messages array
+            $formattedData = [
+                'messages' => [[
+                    'from' => $data['phone'] . '@s.whatsapp.net',
+                    'body' => $data['message'],
+                    'timestamp' => time()
+                ]],
+                // Include additional fields from Baileys if present
+                'baileys_data' => array_diff_key($data, ['phone' => '', 'message' => ''])
+            ];
+            
+            // Dispatch job for async processing
+            ProcessarMensagemWhatsApp::dispatch($formattedData);
+            
+            return response()->json(['status' => 'Processando pedido...'], 202);
+            
+        } catch (\Exception $e) {
+            Log::channel('whatsapp')->error('Error in Baileys webhook', [
+                'error' => $e->getMessage(),
+                'data' => $request->all()
+            ]);
+            
+            return response()->json(['error' => 'Erro ao processar pedido'], 500);
+        }
+    }
+    
+    /**
      * Endpoint para teste manual (simular recepção de mensagem)
      */
     public function testWebhook(Request $request)

@@ -1,0 +1,32 @@
+{
+  "name": "whatsapp-pedidos-bot",
+  "version": "1.0.0",
+  "description": "Bot WhatsApp para Sistema de Pedidos com Agenda Integrada usando Baileys",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "pedidos",
+    "confeitaria",
+    "laravel"
+  ],
+  "author": "Sistema Pedidos com Agenda Integrada",
+  "license": "MIT",
+  "dependencies": {
+    "@adiwajshing/baileys": "^6.7.0",
+    "@hapi/boom": "^10.0.1",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

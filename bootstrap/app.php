@@ -13,17 +13,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Adicionar middleware CORS para permitir requisições do bot WhatsApp
+        $middleware->appendToGroup('api', \Fruitcake\Cors\HandleCors::class);
+        $middleware->appendToGroup('web', \Fruitcake\Cors\HandleCors::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })
-    ->withProviders(
-        in: __DIR__.'/../app/Providers',
-        service: [
-            App\Providers\WhatsAppServiceProvider::class,
-        ],
-    )
+    ->withProviders([
+        App\Providers\AppServiceProvider::class,
+        App\Providers\WhatsAppServiceProvider::class,
+    ])
     ->create();

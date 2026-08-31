@@ -9,6 +9,9 @@ Route::prefix('whatsapp')->group(function () {
     // Webhook principal para receber mensagens da Meta Cloud API
     Route::post('/webhook', [WhatsAppWebhookController::class, 'handleWebhook']);
     
+    // Webhook para o bot Baileys
+    Route::post('/baileys', [WhatsAppWebhookController::class, 'handleBaileysWebhook']);
+    
     // Endpoint para teste manual (GET e POST)
     Route::get('/webhook/test', [WhatsAppWebhookController::class, 'testWebhook']);
     Route::post('/webhook/test', [WhatsAppWebhookController::class, 'testWebhook']);
