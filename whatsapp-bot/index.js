@@ -14,7 +14,7 @@ const qrcode = require('qrcode-terminal');
 // Configurações
 const AUTH_DIR = path.join(__dirname, 'auth');
 const AUTH_FILE = path.join(AUTH_DIR, 'auth_info.json');
-const LARAVEL_ENDPOINT = process.env.LARAVEL_ENDPOINT || 'http://localhost:8000/api/whatsapp/baileys';
+const LARAVEL_ENDPOINT = process.env.LARAVEL_ENDPOINT || 'http://localhost:8080/api/whatsapp/baileys';
 const TRIGGERS = ['🎂✅', '/confirmar', '/pedido'];
 const RECONNECT_DELAY = 5000;
 
@@ -28,7 +28,8 @@ function ensureAuthDirExists() {
 
 function formatPhoneNumber(jid) {
     if (!jid) return 'desconhecido';
-    return jid.replace(/@(s\.whatsapp\.net|c\.us)/g, '');
+    // Remover @s.whatsapp.net, @c.us ou @lid
+    return jid.replace(/@(s\.whatsapp\.net|c\.us|lid)/g, '');
 }
 
 function extractClientName(message) {
@@ -65,9 +66,73 @@ function extractOrderData(text) {
         data_entrega: null, hora_entrega: null, observacoes: null
     };
     
-    // PADRÃO 1: Estruturado
+    // PADRÃO 1: Formato simples: "Produto, Quantidade, Tamanho, Data, Hora"
+    // Exemplo: "Bolo de Chocolate, 1, G, 25/08/2026, 14:00"
+    // Aceita P/M/G ou numero como tamanho
+    const patternSimple = /^([^,]+?)\s*,\s*(\d+)\s*,\s*([PMG\d]?)\s*,\s*(\d{2}\/\d{2}\/\d{4})\s*,\s*(\d{1,2}:\d{2})\s*(.*)?$/i;
+    let match = cleanText.match(patternSimple);
+    if (match) {
+        orderData.produto = match[1].trim();
+        orderData.quantidade = parseInt(match[2]) || 1;
+        // Aceitar P, M, G ou número como tamanho
+        if (match[3] && ['P', 'M', 'G'].includes(match[3].toUpperCase())) {
+            orderData.tamanho = match[3].toUpperCase();
+        } else if (match[3] && /^\d+$/.test(match[3])) {
+            // Se for número, converter para tamanho (1-10 -> P/M/G)
+            const num = parseInt(match[3]);
+            orderData.tamanho = num <= 3 ? 'P' : num <= 6 ? 'M' : 'G';
+        }
+        if (isValidDate(match[4])) orderData.data_entrega = match[4];
+        if (isValidTime(match[5])) orderData.hora_entrega = match[5];
+        if (match[6] && match[6].trim()) {
+            // Extrair observações se houver
+            const obsMatch = match[6].match(/(?:Obs|Observa(?:ções|ção))[:\s]+(.+)/i);
+            orderData.observacoes = obsMatch ? obsMatch[1].trim() : match[6].trim();
+        }
+        if (orderData.produto && orderData.data_entrega) return orderData;
+    }
+    
+    // PADRÃO 1B: Formato simples sem tamanho: "Produto, Quantidade, Data, Hora"
+    const patternSimpleNoSize = /^([^,]+?)\s*,\s*(\d+)\s*,\s*(\d{2}\/\d{2}\/\d{4})\s*,\s*(\d{1,2}:\d{2})\s*(.*)?$/i;
+    match = cleanText.match(patternSimpleNoSize);
+    if (match) {
+        orderData.produto = match[1].trim();
+        orderData.quantidade = parseInt(match[2]) || 1;
+        if (isValidDate(match[3])) orderData.data_entrega = match[3];
+        if (isValidTime(match[4])) orderData.hora_entrega = match[4];
+        if (match[5] && match[5].trim()) {
+            const obsMatch = match[5].match(/(?:Obs|Observa(?:ções|ção))[:\s]+(.+)/i);
+            orderData.observacoes = obsMatch ? obsMatch[1].trim() : match[5].trim();
+        }
+        if (orderData.produto && orderData.data_entrega) return orderData;
+    }
+    
+    // PADRÃO 2: Com cliente: "Cliente, Produto, Quantidade, Tamanho, Data, Hora"
+    const patternWithClient = /^([^,]+?)\s*,\s*([^,]+?)\s*,\s*(\d+)\s*,\s*([PMG\d]?)\s*,\s*(\d{2}\/\d{2}\/\d{4})\s*,\s*(\d{1,2}:\d{2})\s*(.*)?$/i;
+    match = cleanText.match(patternWithClient);
+    if (match) {
+        orderData.cliente = match[1].trim();
+        orderData.produto = match[2].trim();
+        orderData.quantidade = parseInt(match[3]) || 1;
+        // Aceitar P, M, G ou número como tamanho
+        if (match[4] && ['P', 'M', 'G'].includes(match[4].toUpperCase())) {
+            orderData.tamanho = match[4].toUpperCase();
+        } else if (match[4] && /^\d+$/.test(match[4])) {
+            const num = parseInt(match[4]);
+            orderData.tamanho = num <= 3 ? 'P' : num <= 6 ? 'M' : 'G';
+        }
+        if (isValidDate(match[5])) orderData.data_entrega = match[5];
+        if (isValidTime(match[6])) orderData.hora_entrega = match[6];
+        if (match[7] && match[7].trim()) {
+            const obsMatch = match[7].match(/(?:Obs|Observa(?:ções|ção))[:\s]+(.+)/i);
+            orderData.observacoes = obsMatch ? obsMatch[1].trim() : match[7].trim();
+        }
+        if (orderData.produto && orderData.data_entrega) return orderData;
+    }
+    
+    // PADRÃO 3: Estruturado
     const pattern1 = /(?:Cliente[:\s]+([^,]+))?[,\s]*(?:Produto[:\s]+([^,]+))[,\s]*(?:Qtd[:\s]+(\d+))?[,\s]*(?:Tamanho[:\s]+(P|M|G))?[,\s]*(?:Data[:\s]+(\d{2}\/\d{2}\/\d{4}))?[,\s]*(?:Hora[:\s]+(\d{1,2}:\d{2}))?[,\s]*(?:(?:Obs|Observa(?:ções|ção))[:\s]+(.+))?/i;
-    let match = cleanText.match(pattern1);
+    match = cleanText.match(pattern1);
     if (match) {
         if (match[2]) orderData.produto = match[2].trim();
         if (match[1]) orderData.cliente = match[1].trim();
@@ -79,7 +144,7 @@ function extractOrderData(text) {
         if (orderData.produto && orderData.data_entrega) return orderData;
     }
     
-    // PADRÃO 2: Natural
+    // PADRÃO 4: Natural
     const pattern2 = /^([A-Za-z\s]+)[,\s]*(\d+)\s+([^,]+?)\s+(?:tamanho\s+(P|M|G))?[\s]*,?[\s]*(?:entrega\s+(\d{2}\/\d{2}\/\d{4})[\s]+(?:às|as|\s)(\d{1,2}:\d{2}))(?:[,\s]+(?:Obs|Observa(?:ções|ção))[:\s]+(.+))?/i;
     match = cleanText.match(pattern2);
     if (match) {
@@ -93,7 +158,7 @@ function extractOrderData(text) {
         if (orderData.produto && orderData.data_entrega) return orderData;
     }
     
-    // PADRÃO 3: Simples
+    // PADRÃO 5: Simples sem tamanho
     const pattern3 = /^([^,]+)[,\s]*(\d+)[,\s]*(P|M|G)?[,\s]*(\d{2}\/\d{2}\/\d{4})[,\s]*(\d{1,2}:\d{2})?(?:[,\s]+(.+))?/i;
     match = cleanText.match(pattern3);
     if (match) {
@@ -191,10 +256,20 @@ async function connectToWhatsApp() {
     const { version } = await fetchLatestBaileysVersion();
     console.log(`Usando Baileys v${version.join('.')}`);
     
+    // Timestamp de inicialização - apenas mensagens recebidas a partir de agora serão processadas
+    const botStartTimestamp = Date.now();
+    console.log(`Bot iniciado às ${new Date(botStartTimestamp).toISOString()}`);
+    
     const sock = makeWASocket({
         version, auth: state,
         browser: ['SistemaPedidos', 'Chrome', '1.0.0'],
-        shouldReconnect: () => true, maxMsgRetryCount: 3
+        shouldReconnect: () => true, maxMsgRetryCount: 3,
+        // Desabilitar sincronização de histórico para não carregar mensagens antigas
+        syncFullHistory: false,
+        historySyncConfig: {
+            syncOnLogin: false,
+            syncOnConnection: false
+        }
     });
     
     sock.ev.on('creds.update', saveCreds);
@@ -273,6 +348,18 @@ async function connectToWhatsApp() {
             console.log('\n📩 [DEBUG] Mensagem recebida');
             console.log('  Type:', m.type);
             console.log('  FromMe:', message.key.fromMe);
+            
+            // Ignorar mensagens antigas (anteriores ao inicio do bot)
+            const messageTimestamp = message.messageTimestamp || message.message?.messageTimestamp;
+            if (messageTimestamp) {
+                const messageDate = new Date(messageTimestamp * 1000); // Baileys usa timestamp em segundos
+                const messageTime = messageDate.getTime();
+                if (messageTime < botStartTimestamp) {
+                    console.log('  → Ignorando (mensagem antiga, antes do bot iniciar)');
+                    console.log(`     Mensagem: ${messageDate.toISOString()}, Bot iniciado: ${new Date(botStartTimestamp).toISOString()}`);
+                    return;
+                }
+            }
             
             // Processar mensagens independentemente de fromMe (para permitir auto-teste)
             // if (message.key.fromMe || m.type !== 'notify') {
